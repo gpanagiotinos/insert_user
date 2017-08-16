@@ -1,0 +1,58 @@
+<?php
+/**
+* Implements hook_schema()
+**/
+
+function insert_user_schema(){
+	$schema['custom_users'] = array(
+		'description' => 'The base table for users',
+		'fields' => array(
+			'id' => array(
+				'type' => 'serial',
+				'unsigned' => TRUE,
+        		'not null' => TRUE
+				),
+			'firstname'=> array(
+				'type' => 'varchar',
+				'length' => 255,
+				'not null' => TRUE,
+				),
+			'lastname' => array(
+				'type' => 'varchar',
+				'length' => 255,
+				'not null' => TRUE,
+				),
+			'email' => array(
+				'type' => 'varchar',
+				'length' => 255,
+				'not null' => TRUE,
+				),
+			'address' => array(
+				'type' => 'varchar',
+				'length' => 255,
+				'not null' => TRUE,
+				),
+			'random_id' => array(
+				'type' => 'char',
+				'length' => 10,
+				'not null' => TRUE,
+				),
+			),
+			'unique keys' => array(
+		      'id' => array('id'),
+		      ),
+			'primary key' => array('id'),
+			
+		);
+
+	return $schema;
+}
+
+
+function insert_user_install(){
+	drupal_install_schema('insert_user');
+}
+
+function insert_user_uninstall(){
+	drupal_uninstall_schema('insert_user');
+}

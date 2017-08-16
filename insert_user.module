@@ -1,0 +1,170 @@
+<?php
+/**
+	Block module that insert new user into db
+	hook_help
+**/
+function insert_user_help($path, $arg){
+	switch ($path) {
+		case 'admin/help#insert_user':
+			return t("Form to insert new user");
+			break;
+			default:
+			return 'Hello';
+			break;
+	}	
+}
+
+function insert_user_block_info(){
+	$blocks['insert_user'] = array(
+		'info' => t('Insert User'),
+		'cache' => DRUPAL_CACHE_PER_ROLE,
+
+		);
+	return $blocks;
+}
+
+function insert_user_contents(){
+ $query = db_select('custom_users', 'cu')
+ ->fields('cu', array('id','firstname', 'lastname', 'email', 'address', 'random_id'))
+ ->execute();
+ return $query;
+}
+
+function insert_user_block_view($delta = ''){
+	$result = insert_user_contents();
+	switch ($delta) {
+    case 'insert_user':
+    	$block['subject'] = t('Available Users');
+    	if(user_access('access content')){
+    		$result = insert_user_contents();
+    		$users = array();
+    		foreach ($result as $user) {
+    			$users[] = array(
+    					'firstname' => $user->firstname, 
+    					'lastname'=> $user->lastname, 
+    					'email' => $user->email, 
+    					'address' => $user->address, 
+    					'random_id' => $user->random_id,
+    					'button' => l('Update', 'edit_user?id='.$user->id)
+    				);
+    		}
+    		$header = array('Firstname', 'Lastname', 'Email', 'Address', 'Identifier', 'Edit User');
+			if (empty($users)) {
+				$block['content'] = t('No users available.');  
+			} 
+			else {
+			
+			// Pass data through theme function.
+				$block['content'] = theme('table', array(
+					'header' => $header, 
+					'rows' => $users,
+					'attributes' => array('width' => '100%')
+				));
+			}
+    	}
+      
+  }
+  return $block;
+}
+
+
+
+function insert_user_menu(){
+	$items = array();
+	 $items['insert_user'] = array(
+		'title' => 'Insert User',
+		'description' => 'Configuration for Insert User module',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('insert_user_form'),
+		'access arguments' => array('access administration pages'),
+		'type' => MENU_NORMAL_ITEM,
+	 	);
+	 return $items;
+}
+
+
+
+function insert_user_form($form, &$form_state){
+	 $form['firstname'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Firstname'),
+		'#size' => 50,
+		'#maxlength' => 255,
+		'#description' => t('Insert your firstname'),
+		'#required' => TRUE,
+  );
+	 $form['lastname'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Lastname'),
+		'#size' => 50,
+		'#maxlength' => 255,
+		'#description' => t('Insert your lastname'),
+		'#required' => TRUE,
+  );
+
+	$form['email'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Email'),
+		'#size' => 50,
+		'#maxlength' => 255,
+		'#description' => t('Insert your email'),
+		'#required' => TRUE,
+  );
+	$form['address'] = array(
+		'#type' => 'textfield',
+		'#title' => t('Address'),
+		'#size' => 50,
+		'#maxlength' => 255,
+		'#description' => t('Insert your address'),
+		'#required' => TRUE,
+  );
+	$form['actions'] = array('#type' => 'actions');
+	$form['actions']['submit'] = array(
+    	'#type' => 'submit',
+    	'#value' => t('Save'),
+    	);
+	return $form;
+}
+
+function insert_user_form_submit($form, &$form_state) {
+	drupal_set_message(t('The form has been submitted.'));
+	global $user; 
+  	// Here u can insert Your custom form values into your custom table.
+ 	 db_insert('custom_users')
+    ->fields(array(
+      'firstname' => $form_state['values']['firstname'],
+      'lastname' => $form_state['values']['lastname'],
+      'email' => $form_state['values']['email'],
+      'address' => $form_state['values']['address'],
+      'random_id' =>  generateRandomString(10),       
+    ))->execute();
+    drupal_set_message("The new user have been saved"); 
+
+}
+
+
+
+function insert_user_form_validate($form, &$form_state){
+	$mail = $form_state['values']['email'];
+	if(!(valid_email_address($mail))){
+		form_set_error('email', t('Invalid email address'));
+
+	}
+	//#, Street name, Zip Code, City, Country is the address format.
+	$address = $form_state['values']['address'];
+	if(!(preg_match('/^\\d+ [a-zA-Z ]+, \\d+ [a-zA-Z ]+, [a-zA-Z ]+$/', $address))){
+		form_set_error('address', t('Invalid physical address'));
+	}
+}
+
+
+//Genareta random char
+function generateRandomString($length) {
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $charactersLength = strlen($characters);
+    $randomString = '';
+    for ($i = 0; $i < $length; $i++) {
+        $randomString .= $characters[rand(0, $charactersLength - 1)];
+    }
+    return $randomString;
+}
