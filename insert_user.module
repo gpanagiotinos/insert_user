@@ -8,32 +8,51 @@ function insert_user_help($path, $arg){
 		case 'admin/help#insert_user':
 			return t("Form to insert new user");
 			break;
-			default:
-			return 'Hello';
-			break;
 	}	
 }
 
 function insert_user_block_info(){
-	$blocks['insert_user'] = array(
+	global $user;
+	$blocks = array();
+	$blocks['sign_up'] = array(
 		'info' => t('Insert User'),
-		'cache' => DRUPAL_CACHE_PER_ROLE,
-
+		'cache' => DRUPAL_NO_CACHE,
+		);
+	$blocks['show_users'] = array(
+		'info' => t('Show Users'),
 		);
 	return $blocks;
 }
 
-function insert_user_contents(){
- $query = db_select('custom_users', 'cu')
- ->fields('cu', array('id','firstname', 'lastname', 'email', 'address', 'random_id'))
- ->execute();
- return $query;
+
+
+function insert_user_contents($id = 0){
+	if(!($id)){
+		$query = db_select('custom_users', 'cu')
+		->fields('cu', array('id','firstname', 'lastname', 'email', 'address', 'random_id'))
+		->execute();
+		return $query;
+	}else{
+		$query = db_select('custom_users', 'cu')
+		->fields('cu', array('id','firstname', 'lastname', 'email', 'address', 'random_id'))
+		->condition('id', $id, '=')
+		->execute()
+		->fetch();
+		return $query;
+	}
 }
 
 function insert_user_block_view($delta = ''){
 	$result = insert_user_contents();
+	$block = array();
 	switch ($delta) {
-    case 'insert_user':
+    case 'sign_up':
+    	$block['subject'] = t('Insert User');
+    	if(user_access('access content')){
+    		$block['content'] = t('Simple block to insert users');
+    	}
+    	break;
+    	case 'show_users':
     	$block['subject'] = t('Available Users');
     	if(user_access('access content')){
     		$result = insert_user_contents();
@@ -45,7 +64,7 @@ function insert_user_block_view($delta = ''){
     					'email' => $user->email, 
     					'address' => $user->address, 
     					'random_id' => $user->random_id,
-    					'button' => l('Update', 'edit_user?id='.$user->id)
+    					'button' => l('Update', 'edit_user/'.$user->id)
     				);
     		}
     		$header = array('Firstname', 'Lastname', 'Email', 'Address', 'Identifier', 'Edit User');
@@ -62,7 +81,8 @@ function insert_user_block_view($delta = ''){
 				));
 			}
     	}
-      
+    	break;
+    	
   }
   return $block;
 }
@@ -79,12 +99,37 @@ function insert_user_menu(){
 		'access arguments' => array('access administration pages'),
 		'type' => MENU_NORMAL_ITEM,
 	 	);
+
+	 $items['edit_user'] = array(
+		'title' => 'Edit User',
+		'description' => 'Edit User in Insert User module',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array('insert_user_form'),
+		'access arguments' => array('access administration pages'),
+		'type' => MENU_LOCAL_TASK,
+	 	);
 	 return $items;
 }
 
 
 
-function insert_user_form($form, &$form_state){
+function insert_user_form($form, &$form_state, $id = 0){
+	if($id){
+		$result = insert_user_contents($id);
+		$form_action = 'insert_user_form_update';
+		$button_name = 'Update';
+	}else{
+		$result = new stdClass;
+		$result->firstname = '';
+		$result->lastname = '';
+		$result->email = ''; 
+		$result->address = '';
+		$result->id = 0;
+		$form_action = 'insert_user_form_submit';
+		$button_name = 'Save';
+		
+	}
+
 	 $form['firstname'] = array(
 		'#type' => 'textfield',
 		'#title' => t('Firstname'),
@@ -92,6 +137,7 @@ function insert_user_form($form, &$form_state){
 		'#maxlength' => 255,
 		'#description' => t('Insert your firstname'),
 		'#required' => TRUE,
+		'#default_value' =>$result->firstname,
   );
 	 $form['lastname'] = array(
 		'#type' => 'textfield',
@@ -100,6 +146,7 @@ function insert_user_form($form, &$form_state){
 		'#maxlength' => 255,
 		'#description' => t('Insert your lastname'),
 		'#required' => TRUE,
+		'#default_value' =>$result->lastname,
   );
 
 	$form['email'] = array(
@@ -109,6 +156,7 @@ function insert_user_form($form, &$form_state){
 		'#maxlength' => 255,
 		'#description' => t('Insert your email'),
 		'#required' => TRUE,
+		'#default_value' =>$result->email,
   );
 	$form['address'] = array(
 		'#type' => 'textfield',
@@ -117,11 +165,14 @@ function insert_user_form($form, &$form_state){
 		'#maxlength' => 255,
 		'#description' => t('Insert your address'),
 		'#required' => TRUE,
+		'#default_value' =>$result->address,
   );
+	$form_state['storage']['id'] = $result->id;
 	$form['actions'] = array('#type' => 'actions');
-	$form['actions']['submit'] = array(
+	$form['actions']['update'] = array(
     	'#type' => 'submit',
-    	'#value' => t('Save'),
+    	'#value' => $button_name,
+    	'#submit'=> array($form_action),
     	);
 	return $form;
 }
@@ -130,7 +181,8 @@ function insert_user_form_submit($form, &$form_state) {
 	drupal_set_message(t('The form has been submitted.'));
 	global $user; 
   	// Here u can insert Your custom form values into your custom table.
- 	 db_insert('custom_users')
+  	try{
+ 	 $insert = db_insert('custom_users')
     ->fields(array(
       'firstname' => $form_state['values']['firstname'],
       'lastname' => $form_state['values']['lastname'],
@@ -138,7 +190,37 @@ function insert_user_form_submit($form, &$form_state) {
       'address' => $form_state['values']['address'],
       'random_id' =>  generateRandomString(10),       
     ))->execute();
+	}catch(PDOException $e) {
+		if($e->errorInfo[1] == 1062){
+			drupal_set_message(t($e->errorInfo[2]), 'error');
+		}else{
+			drupal_set_message(t($e->errorInfo[2]), 'error');
+		}
+	}
     drupal_set_message("The new user have been saved"); 
+
+}
+
+function insert_user_form_update($form, &$form_state) {
+	drupal_set_message(t('The form has been submitted.'));
+	global $user; 
+
+  	// Here u can insert Your custom form values into your custom table.
+ 	$num_updated = db_update('custom_users')
+    ->fields(array(
+      'firstname' => $form_state['values']['firstname'],
+      'lastname' => $form_state['values']['lastname'],
+      'email' => $form_state['values']['email'],
+      'address' => $form_state['values']['address'],      
+    ))
+    ->condition('id', $form_state['storage']['id'])
+    ->execute();
+    
+    if($num_updated){
+    	drupal_set_message("The user have been updated");
+    }else{
+    	drupal_set_message("An error have been occured", 'error');
+    } 
 
 }
 
