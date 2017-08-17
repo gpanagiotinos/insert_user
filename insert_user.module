@@ -16,7 +16,7 @@ function insert_user_block_info(){
 	$blocks = array();
 	$blocks['sign_up'] = array(
 		'info' => t('Insert User'),
-		'cache' => DRUPAL_NO_CACHE,
+		'cache' => DRUPAL_NO_CACHE
 		);
 	$blocks['show_users'] = array(
 		'info' => t('Show Users'),
@@ -45,16 +45,18 @@ function insert_user_contents($id = 0){
 function insert_user_block_view($delta = ''){
 	$result = insert_user_contents();
 	$block = array();
+
 	switch ($delta) {
     case 'sign_up':
     	$block['subject'] = t('Insert User');
     	if(user_access('access content')){
-    		$block['content'] = t('Simple block to insert users');
+    		$form_view = drupal_get_form('insert_user_form');
+    		$block['content'] = drupal_render($form_view);
     	}
     	break;
     	case 'show_users':
     	$block['subject'] = t('Available Users');
-    	if(user_access('access content')){
+    	if(user_access('administer users')){
     		$result = insert_user_contents();
     		$users = array();
     		foreach ($result as $user) {
@@ -91,6 +93,7 @@ function insert_user_block_view($delta = ''){
 
 function insert_user_menu(){
 	$items = array();
+	/*
 	 $items['insert_user'] = array(
 		'title' => 'Insert User',
 		'description' => 'Configuration for Insert User module',
@@ -99,7 +102,7 @@ function insert_user_menu(){
 		'access arguments' => array('access administration pages'),
 		'type' => MENU_NORMAL_ITEM,
 	 	);
-
+	*/
 	 $items['edit_user'] = array(
 		'title' => 'Edit User',
 		'description' => 'Edit User in Insert User module',
@@ -109,6 +112,7 @@ function insert_user_menu(){
 		'type' => MENU_LOCAL_TASK,
 	 	);
 	 return $items;
+	 
 }
 
 
@@ -118,6 +122,9 @@ function insert_user_form($form, &$form_state, $id = 0){
 		$result = insert_user_contents($id);
 		$form_action = 'insert_user_form_update';
 		$button_name = 'Update';
+		$blocks = insert_user_block_info();
+		insert_user_block_list_alter($blocks, 'sign_up');
+
 	}else{
 		$result = new stdClass;
 		$result->firstname = '';
@@ -250,3 +257,10 @@ function generateRandomString($length) {
     }
     return $randomString;
 }
+
+function insert_user_block_list_alter(&$blocks, $key) {
+	 $result = db_update('block')
+	->fields(array('region' => 'sidebar_first'))
+    ->condition('delta', $key, 'LIKE')
+    ->execute();
+ }
